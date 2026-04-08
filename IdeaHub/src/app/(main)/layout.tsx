@@ -1,0 +1,14 @@
+import ProtectedRoute from '@/components/common/ProtectedRoute';
+import MainLayout from '@/components/layout/MainLayout';
+
+export default function MainGroupLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ProtectedRoute>
+      <MainLayout>{children}</MainLayout>
+    </ProtectedRoute>
+  );
+}
