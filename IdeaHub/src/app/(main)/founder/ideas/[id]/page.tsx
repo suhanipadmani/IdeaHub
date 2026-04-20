@@ -4,12 +4,13 @@ import { useParams } from 'next/navigation';
 import { useIdea } from '@/hooks/useIdeas';
 import { Loader } from '@/components/ui/Loader';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, Calendar, Code, FileText, AlertCircle, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, AlertCircle, MessageSquare } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { AxiosError } from 'axios';
 import Link from 'next/link';
 import { useAnalyzeIdea } from '@/hooks/useAnalyzeIdea';
 import { AIAnalysisSection } from '@/components/common/AIAnalysisSection';
+import { ProjectDocuments } from '@/components/common/ProjectDocuments';
 import { useChatNotifications } from '@/hooks/useChatNotifications';
 
 export default function ProjectDetailsPage() {
@@ -153,6 +154,13 @@ export default function ProjectDetailsPage() {
                             </section>
                         </div>
                     </div>
+
+                    {/* Project Documents Section */}
+                    {idea.documents && idea.documents.length > 0 && (
+                        <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden">
+                            <ProjectDocuments documents={idea.documents} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column (Sidebar) */}

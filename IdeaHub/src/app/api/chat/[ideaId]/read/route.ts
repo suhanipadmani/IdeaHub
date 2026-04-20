@@ -4,6 +4,7 @@ import { ChatReadStatus } from '@/models/ChatReadStatus';
 import { ProjectIdea } from '@/models/ProjectIdea';
 import { AppError } from '@/lib/errors';
 import connectDB from '@/lib/db';
+import { ChatMessage } from '@/models/ChatMessage';
 
 export const POST = withAuth(async (req, { params, auth }) => {
     await connectDB();
@@ -27,6 +28,16 @@ export const POST = withAuth(async (req, { params, auth }) => {
         { userId: auth.userId, ideaId },
         { lastReadAt: new Date() },
         { upsert: true, returnDocument: 'after' }
+    );
+
+    // Also mark all messages from other users as 'seen'
+    await ChatMessage.updateMany(
+        { 
+            ideaId, 
+            senderId: { $ne: auth.userId },
+            status: { $ne: 'seen' }
+        },
+        { status: 'seen' }
     );
 
     return NextResponse.json({ success: true, lastReadAt: status.lastReadAt });

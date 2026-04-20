@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SocketProvider } from '../context/SocketContext';
+import { SocketProvider } from '../../context/SocketContext';
 import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from './ThemeProvider';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -17,10 +18,12 @@ const queryClient = new QueryClient({
 export const ClientProviders = ({ children }: { children: React.ReactNode }) => {
     return (
         <QueryClientProvider client={queryClient}>
-            <SocketProvider>
-                <Toaster position="top-right" />
-                {children}
-            </SocketProvider>
+            <ThemeProvider>
+                <SocketProvider>
+                    <Toaster position="top-right" />
+                    {children}
+                </SocketProvider>
+            </ThemeProvider>
         </QueryClientProvider>
     );
 };

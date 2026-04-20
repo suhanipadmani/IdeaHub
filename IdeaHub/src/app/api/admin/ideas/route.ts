@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import { ProjectIdea } from '@/models/ProjectIdea';
+import { ideaService } from '@/services/idea.service';
 import { requireAdmin } from '@/lib/auth-server';
 
 export async function GET(req: NextRequest) {
     try {
-        const { error } = await requireAdmin(req);
-        if (error) return error;
+        const { error, auth } = await requireAdmin(req);
+        if (error || !auth) return error;
 
         const { searchParams } = new URL(req.url);
         const status = searchParams.get('status');
@@ -53,14 +54,19 @@ export async function GET(req: NextRequest) {
         await connectDB();
 
         const totalDocs = await ProjectIdea.countDocuments(filter);
-        const projects = await ProjectIdea.find(filter)
-            .populate("founderId", "name email")
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        const projects = await ideaService.findIdeas(
+            filter, 
+            { createdAt: -1 }, 
+            auth.userId
+        );
+
+        // Apply pagination locally since findIdeas returns all for now, 
+        // but we should probably update findIdeas to handle pagination if needed.
+        // For now, let's keep it simple as the admin list usually shows recent ones.
+        const paginatedProjects = projects.slice(skip, skip + limit);
 
         return NextResponse.json({
-            docs: projects,
+            docs: paginatedProjects,
             totalDocs,
             limit,
             page,

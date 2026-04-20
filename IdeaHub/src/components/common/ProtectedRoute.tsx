@@ -8,7 +8,7 @@ import { Loader } from '../ui/Loader';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoadingUser } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

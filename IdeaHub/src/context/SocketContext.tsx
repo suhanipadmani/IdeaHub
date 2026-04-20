@@ -26,25 +26,29 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
         const initSocket = async () => {
             try {
-                // In Next.js with Pages API sockets, we MUST hit the endpoint once to initialize the server
-                await fetch('/api/socket');
+                const response = await fetch('/api/socket');
+                if (!response.ok) {
+                    console.warn('Failed to prime socket server endpoint');
+                }
                 
                 const newSocket = io(socketUrl, {
-                    reconnectionAttempts: 5,
-                    timeout: 10000,
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 1000,
+                    timeout: 20000,
                     path: '/socket.io',
                     addTrailingSlash: false,
+                    // Start with polling so socket.io doesn't do a raw WebSocket upgrade
+                    // that races with the priming fetch() above.
+                    transports: ['polling', 'websocket'],
                 });
                 
                 setSocket(newSocket);
 
-                newSocket.on('connect', () => {
-                    console.log('Socket connected');
-                });
 
                 newSocket.on('connect_error', (error) => {
-                    console.warn('Socket connection error:', error.message);
+                    console.error('Socket connection error:', error.message);
                 });
+
             } catch (err) {
                 console.error('Failed to initialize socket:', err);
             }

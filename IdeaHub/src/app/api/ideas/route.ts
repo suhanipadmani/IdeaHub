@@ -39,6 +39,6 @@ export const GET = withAuth(async (req, { auth }) => {
     const status = searchParams.get('status');
     if (status) filter.status = status;
 
-    const ideas = await ideaService.findIdeas(filter);
+    const ideas = await ideaService.findIdeas(filter, { createdAt: -1 }, auth.userId);
     return NextResponse.json(ideas);
 });

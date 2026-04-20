@@ -21,7 +21,6 @@ const chatReadStatusSchema = new Schema(
     { timestamps: true }
 );
 
-// Compound index for fast lookups by user and project
 chatReadStatusSchema.index({ userId: 1, ideaId: 1 }, { unique: true });
 
 export const ChatReadStatus = mongoose.models.ChatReadStatus || mongoose.model('ChatReadStatus', chatReadStatusSchema);

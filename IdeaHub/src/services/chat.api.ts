@@ -9,7 +9,7 @@ export const chatService = {
     },
     getUnreadCounts: async () => {
         const response = await api.get('/chat/unread-counts');
-        return response.data.unreadCounts;
+        return response.data;
     },
     markRead: async (ideaId: string) => {
         const response = await api.post(`/chat/${ideaId}/read`);

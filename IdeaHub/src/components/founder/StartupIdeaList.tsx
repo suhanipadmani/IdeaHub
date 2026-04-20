@@ -10,14 +10,14 @@ import { Select } from '@/components/ui/Select';
 import { PlusCircle, Search, Edit2, Trash2, Eye, ArrowLeft, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import type { IProjectIdea } from '@/types';
-import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { cn } from '@/utils/cn';
+import { useChatNotifications } from '@/hooks/useChatNotifications';
 
 export const StartupIdeaList = () => {
+    const { unreadCounts } = useChatNotifications();
     const [page, setPage] = useState(1);
     const [status, setStatus] = useState<string>('');
     const [search, setSearch] = useState('');
-    const { unreadCounts } = useChatNotifications();
 
     const queryParams = {
         page,
@@ -122,14 +122,14 @@ export const StartupIdeaList = () => {
                                     <tr key={idea._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2">
-                                                <Link href={`/founder/ideas/${idea._id}`} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium cursor-pointer">
+                                                <Link href={`/founder/ideas/${idea._id}`} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold cursor-pointer flex items-center gap-2 group">
                                                     {idea.title}
+                                                    {unreadCounts[idea._id] > 0 ? (
+                                                        <span className="flex items-center justify-center bg-red-600 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                                                            {unreadCounts[idea._id]}
+                                                        </span>
+                                                    ) : null}
                                                 </Link>
-                                                {unreadCounts[idea._id] > 0 && (
-                                                    <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none flex items-center justify-center min-w-[1.25rem]">
-                                                        {unreadCounts[idea._id]}
-                                                    </span>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

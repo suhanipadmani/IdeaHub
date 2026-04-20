@@ -80,31 +80,33 @@ export default function ChatPage() {
     return (
         <div className="max-w-5xl mx-auto px-4 pb-12">
             {/* Header / Breadcrumb */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 mt-2">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="p-2 h-auto hover:bg-transparent text-gray-400 hover:text-indigo-600 transition-colors"
+                        className="p-2 h-auto hover:bg-transparent text-gray-400 hover:text-indigo-600 transition-colors shrink-0"
                         onClick={() => router.back()}
                     >
                         <ArrowLeft className="w-6 h-6" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight leading-none mb-1">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight leading-tight mb-1 truncate">
                             {idea.title}
                         </h1>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+                        <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-indigo-600 dark:text-indigo-400 truncate">
                             Active Collaboration Channel
                         </p>
                     </div>
                 </div>
                 
-                <Link href={isAdmin ? `/admin/ideas/${id}` : `/founder/ideas/${id}`}>
-                    <Button variant="outline" size="sm" className="font-bold px-6 border-gray-200 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800">
-                        View Project Scope
-                    </Button>
-                </Link>
+                <div className="flex shrink-0">
+                    <Link href={isAdmin ? `/admin/ideas/${id}` : `/founder/ideas/${id}`} className="w-full sm:w-auto">
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto font-bold px-6 border-gray-200 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm">
+                            View Project Scope
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Main Chat Container */}

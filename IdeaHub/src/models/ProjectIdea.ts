@@ -67,12 +67,38 @@ const projectIdeaSchema = new Schema(
             risks: { type: [String], default: [] },
             opportunities: { type: [String], default: [] },
             analyzedAt: { type: Date, default: null }
+        },
+        isPublic: {
+            type: Boolean,
+            default: false
+        },
+        publishedAt: {
+            type: Date,
+            default: null
+        },
+        slug: {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true
+        },
+        views: {
+            type: Number,
+            default: 0
+        },
+        tagline: {
+            type: String,
+            default: "",
+            trim: true
         }
     },
     { timestamps: true }
 );
 
-// Force model refresh in development to pick up schema changes
+projectIdeaSchema.index({ title: 'text', tagline: 'text', problemStatement: 'text' });
+
+
+
 if (process.env.NODE_ENV === 'development' && mongoose.models.ProjectIdea) {
     delete (mongoose.models as any).ProjectIdea;
 }

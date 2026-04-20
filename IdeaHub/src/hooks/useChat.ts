@@ -17,6 +17,23 @@ export interface IMessage {
         type: string;
         size: number;
     };
+    attachments?: {
+        url: string;
+        name: string;
+        type: string;
+        size: number;
+    }[];
+    isEdited?: boolean;
+    isPinned?: boolean;
+    editedAt?: string;
+    replyTo?: {
+        _id: string;
+        message: string;
+        senderId: string;
+        senderRole: string;
+        attachment?: any;
+    };
+    status?: 'sent' | 'delivered' | 'seen';
     createdAt: string;
 }
 
@@ -72,10 +89,8 @@ export const useChat = (ideaId: string) => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        // Join the room
         socket.emit('join_room', { ideaId, token });
 
-        // Mark as read when entering the chat
         chatService.markRead(ideaId).then(() => {
             socket.emit('mark_chat_read', { ideaId, token });
         }).catch(() => { });
@@ -104,6 +119,12 @@ export const useChat = (ideaId: string) => {
                     chatService.markRead(ideaIdRef.current).then(() => {
                         socket.emit('mark_chat_read', { ideaId: ideaIdRef.current, token });
                     }).catch(() => { });
+
+                    socket.emit('message_delivered', { 
+                        ideaId: ideaIdRef.current, 
+                        messageId: msg._id, 
+                        token 
+                    });
                 }
             }
         };
@@ -120,14 +141,54 @@ export const useChat = (ideaId: string) => {
             setMessages(prev => prev.filter(m => !messageIds.includes(m._id)));
         };
 
+        const handleMessageEdited = ({ messageId, newText, isEdited, editedAt }: { messageId: string, newText: string, isEdited: boolean, editedAt: string }) => {
+            setMessages(prev => prev.map(m => 
+                m._id === messageId 
+                    ? { ...m, message: newText, isEdited, editedAt } 
+                    : m
+            ));
+        };
+
+        const handleMessagePinned = ({ messageId, isPinned }: { messageId: string, isPinned: boolean }) => {
+            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isPinned } : m));
+        };
+
+        const handleMessageUnpinned = ({ messageId, isPinned }: { messageId: string, isPinned: boolean }) => {
+            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isPinned } : m));
+        };
+
+        const handleMessageStatusUpdate = (payload: { messageId?: string, ideaId?: string, status: 'sent' | 'delivered' | 'seen', updatedBy?: string }) => {
+            setMessages(prev => prev.map(m => {
+                if (payload.messageId && m._id === payload.messageId) {
+                    return { ...m, status: payload.status };
+                }
+                if (payload.ideaId && !payload.messageId && m.senderId !== payload.updatedBy) {
+                    const statusRank = { sent: 1, delivered: 2, seen: 3 };
+                    const currentStatus = m.status || 'sent';
+                    if (statusRank[payload.status] > statusRank[currentStatus]) {
+                        return { ...m, status: payload.status };
+                    }
+                }
+                return m;
+            }));
+        };
+
         socket.on('receive_message', handleNewMessage);
         socket.on('user_typing', handleTyping);
         socket.on('messages_deleted', handleMessagesDeleted);
+        socket.on('message_edited', handleMessageEdited);
+        socket.on('message_pinned', handleMessagePinned);
+        socket.on('message_unpinned', handleMessageUnpinned);
+        socket.on('message_status_update', handleMessageStatusUpdate);
 
         return () => {
             socket.off('receive_message', handleNewMessage);
             socket.off('user_typing', handleTyping);
             socket.off('messages_deleted', handleMessagesDeleted);
+            socket.off('message_edited', handleMessageEdited);
+            socket.off('message_pinned', handleMessagePinned);
+            socket.off('message_unpinned', handleMessageUnpinned);
+            socket.off('message_status_update', handleMessageStatusUpdate);
         };
     }, [socket, ideaId, user]);
 
@@ -159,33 +220,59 @@ export const useChat = (ideaId: string) => {
         }
     }, [ideaId]);
 
-    const sendMessage = useCallback(async (text: string, attachment?: IMessage['attachment']) => {
+    const sendMessage = useCallback(async (text: string, attachments?: IMessage['attachments'], replyToInfo?: IMessage['replyTo']) => {
         if (!socket || !ideaId || !user) {
             throw new Error('Chat session not ready');
         }
 
-        if (!text.trim() && !attachment) {
+        if (!text.trim() && (!attachments || attachments.length === 0)) {
             return;
         }
 
         const token = localStorage.getItem('token');
         if (!token) throw new Error('Unauthorized');
 
-        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        const optimisticMsg: IMessage = {
-            _id: tempId,
+        const payloads: { message?: string, attachments?: IMessage['attachments'], replyTo?: string }[] = [];
+
+        if (attachments && attachments.length > 0) {
+            attachments.forEach((att, idx) => {
+                payloads.push({
+                    message: idx === 0 ? text.trim() : "",
+                    attachments: [att]
+                });
+            });
+        } else if (text.trim()) {
+            payloads.push({ message: text.trim() });
+        }
+
+        if (payloads.length > 0 && replyToInfo) {
+            payloads[0].replyTo = replyToInfo._id;
+        }
+
+        const now = Date.now();
+        const optimisticMessages: IMessage[] = payloads.map((p, idx) => ({
+            _id: `temp-${now}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
             ideaId,
             senderId: user.id,
             senderRole: user.role as any,
-            message: text,
-            attachment,
-            createdAt: new Date().toISOString()
-        };
+            message: p.message || "",
+            attachments: p.attachments,
+            replyTo: p.replyTo ? replyToInfo : undefined,
+            createdAt: new Date(now + idx).toISOString()
+        }));
 
-        setMessages(prev => [optimisticMsg, ...prev]);
+        setMessages(prev => [...[...optimisticMessages].reverse(), ...prev]);
 
-        // Emit to server
-        socket.emit('send_message', { ideaId, token, message: text, attachment });
+
+        payloads.forEach(payload => {
+            socket.emit('send_message', { 
+                ideaId, 
+                token, 
+                message: payload.message, 
+                attachments: payload.attachments, 
+                replyTo: payload.replyTo 
+            });
+        });
     }, [socket, ideaId, user]);
 
     const deleteMessages = useCallback(async (messageIds: string[]) => {
@@ -199,6 +286,50 @@ export const useChat = (ideaId: string) => {
         setMessages(prev => prev.filter(m => !messageIds.includes(m._id)));
 
         socket.emit('delete_messages', { ideaId, token, messageIds });
+    }, [socket, ideaId, user]);
+
+    const editMessage = useCallback(async (messageId: string, newText: string) => {
+        if (!socket || !ideaId || !user) {
+            throw new Error('Chat session not ready');
+        }
+
+        if (!newText.trim()) return;
+
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Unauthorized');
+
+        setMessages(prev => prev.map(m => 
+            m._id === messageId 
+                ? { ...m, message: newText, isEdited: true, editedAt: new Date().toISOString() } 
+                : m
+        ));
+        socket.emit('edit_message', { ideaId, token, messageId, newText });
+    }, [socket, ideaId, user]);
+
+    const pinMessage = useCallback(async (messageId: string) => {
+        if (!socket || !ideaId || !user || user.role !== 'admin') {
+            throw new Error('Unauthorized or chat session not ready');
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Unauthorized');
+
+        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isPinned: true } : m));
+
+        socket.emit('pin_message', { ideaId, token, messageId });
+    }, [socket, ideaId, user]);
+
+    const unpinMessage = useCallback(async (messageId: string) => {
+        if (!socket || !ideaId || !user || user.role !== 'admin') {
+            throw new Error('Unauthorized or chat session not ready');
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Unauthorized');
+
+        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isPinned: false } : m));
+
+        socket.emit('unpin_message', { ideaId, token, messageId });
     }, [socket, ideaId, user]);
 
 
@@ -228,6 +359,9 @@ export const useChat = (ideaId: string) => {
         typingUsers,
         sendMessage,
         deleteMessages,
+        editMessage,
+        pinMessage,
+        unpinMessage,
         setTyping,
         loadMore,
         isUploading,

@@ -187,7 +187,7 @@ export const AIAnalysisSection = ({
                         ) : (
                             <div className="md:col-span-2">
                                 <HighlightList
-                                    title="Improvement roadmap"
+                                    title="Improvement Suggestions"
                                     items={data.autoImprovementSuggestions}
                                     icon={<Zap className="w-4 h-4 text-amber-500" />}
                                     color="amber"

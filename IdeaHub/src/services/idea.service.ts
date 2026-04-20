@@ -1,22 +1,100 @@
 import { ProjectIdea } from '@/models/ProjectIdea';
 import { ReviewLog } from '@/models/ReviewLog';
+import { ChatMessage } from '@/models/ChatMessage';
+import { Notification } from '@/models/Notification';
 import { BaseService } from './base.service';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import mongoose from 'mongoose';
-import axios from 'axios';
+import { generateSlug } from '@/utils/slug';
+import { callAiWithFallback } from '@/lib/ai-retry';
 
 export class IdeaService extends BaseService<any> {
     constructor() {
         super(ProjectIdea);
     }
 
-    async findIdeas(filter: any = {}, sort: any = { createdAt: -1 }) {
+    async findIdeas(filter: any = {}, sort: any = { createdAt: -1 }, userId?: string) {
         await this.connect();
-        return this.model.find(filter)
+        const ideas = await this.model.find(filter)
             .populate('founderId', 'name email')
             .sort(sort)
             .exec();
+
+        if (userId && ideas.length > 0) {
+            return await this.attachUnreadCounts(ideas, userId);
+        }
+
+        return ideas;
+    }
+
+    async attachUnreadCounts(ideas: any[], userId: string) {
+        if (!ideas.length) return ideas;
+        const ideaIds = ideas.map(i => i._id);
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+        
+        // Optimized Aggregation:
+        // 1. Match messages for these ideas NOT sent by the current user
+        // 2. Lookup the read status for this user/idea
+        // 3. Count messages where createdAt > lastReadAt
+        const unreadStats = await ChatMessage.aggregate([
+            { 
+                $match: { 
+                    ideaId: { $in: ideaIds },
+                    senderId: { $ne: userObjectId }
+                } 
+            },
+            {
+                $lookup: {
+                    from: 'chatreadstatuses',
+                    let: { idea: '$ideaId' },
+                    pipeline: [
+                        { 
+                            $match: { 
+                                $expr: { 
+                                    $and: [
+                                        { $eq: ['$ideaId', '$$idea'] },
+                                        { $eq: ['$userId', userObjectId] }
+                                    ]
+                                }
+                            } 
+                        }
+                    ],
+                    as: 'status'
+                }
+            },
+            {
+                $addFields: {
+                    lastReadAt: { 
+                        $ifNull: [
+                            { $arrayElemAt: ['$status.lastReadAt', 0] }, 
+                            new Date(0) 
+                        ] 
+                    }
+                }
+            },
+            {
+                $match: {
+                    $expr: { $gt: ['$createdAt', '$lastReadAt'] }
+                }
+            },
+            {
+                $group: {
+                    _id: '$ideaId',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const countsMap = new Map(unreadStats.map(s => [s._id.toString(), s.count]));
+
+        return ideas.map(idea => {
+            const ideaObj = idea.toObject ? idea.toObject() : idea;
+            return {
+                ...ideaObj,
+                unreadCount: countsMap.get(idea._id.toString()) || 0
+            };
+        });
     }
 
     async getStats() {
@@ -95,6 +173,7 @@ export class IdeaService extends BaseService<any> {
             ...ideaData,
             pitchDeckUrl,
             status: 'pending',
+            tagline: ideaData.tagline || "",
             aiAnalysis: experimentAIAnalysis(ideaData.aiAnalysis)
         });
 
@@ -125,6 +204,7 @@ export class IdeaService extends BaseService<any> {
         if (updateData.targetMarket) idea.targetMarket = updateData.targetMarket;
         if (updateData.techStack) idea.techStack = updateData.techStack;
         if (updateData.teamDetails) idea.teamDetails = updateData.teamDetails;
+        if (updateData.tagline !== undefined) idea.tagline = updateData.tagline;
         
         if (updateData.aiAnalysis) {
             try {
@@ -154,6 +234,22 @@ export class IdeaService extends BaseService<any> {
         if (!idea) throw new Error("Idea not found");
         if (idea.status !== "pending") throw new Error("Already reviewed");
 
+        if (status === 'approved') {
+            idea.isPublic = true;
+            idea.publishedAt = new Date();
+            
+            // Generate unique slug
+            let slug = generateSlug(idea.title);
+            let slugExists = await this.model.findOne({ slug });
+            let counter = 1;
+            while (slugExists) {
+                slug = `${generateSlug(idea.title)}-${counter}`;
+                slugExists = await this.model.findOne({ slug });
+                counter++;
+            }
+            idea.slug = slug;
+        }
+
         idea.status = status;
         idea.adminComment = comment;
         await idea.save();
@@ -163,6 +259,19 @@ export class IdeaService extends BaseService<any> {
             adminId,
             action: status,
             comment,
+        });
+
+        // Create Notification for the Founder
+        await Notification.create({
+            userId: idea.founderId,
+            title: `Project ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+            message: `Your project "${idea.title}" has been ${status} by the administrator.`,
+            type: 'review',
+            link: status === 'approved' ? `/founder/ideas/${idea._id}` : '/founder/ideas',
+            metadata: {
+                projectId: idea._id,
+                status: status
+            }
         });
 
         return idea;
@@ -198,8 +307,6 @@ export class IdeaService extends BaseService<any> {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error("AI API Key is missing in environment variables.");
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
         const prompt = `
             You are a startup evaluator.
             Analyze the following startup idea and return a strictly formatted JSON object. 
@@ -221,19 +328,13 @@ export class IdeaService extends BaseService<any> {
         `;
 
         try {
-            const response = await axios.post(url, {
-                contents: [{ parts: [{ text: prompt }] }],
+            const { text, modelUsed } = await callAiWithFallback({
+                prompt,
+                apiKey,
                 generationConfig: {
                     responseMimeType: "application/json",
                 }
             });
-
-            const result = response.data;
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (!text) {
-                throw new Error("No response content from AI API");
-            }
 
             const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const analysisData = JSON.parse(cleanJson);
@@ -259,14 +360,8 @@ export class IdeaService extends BaseService<any> {
 
             return aiAnalysisData;
         } catch (error: any) {
-            const backendError = error.response?.data?.error?.message || error.message;
-            const statusCode = error.response?.status;
-            
-            if (statusCode === 429) {
-                throw new Error("AI Quota Exceeded. Please try again in a few minutes.");
-            }
- 
-            throw new Error(backendError || "AI Service failure");
+            console.error("Founder AI Analysis Error:", error);
+            throw new Error(error.message || "AI Service failure. Please try again later.");
         }
     }
     async analyzeIdeaForAdmin(ideaId: string, adminId: string) {
@@ -277,8 +372,6 @@ export class IdeaService extends BaseService<any> {
 
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error("AI API Key is missing.");
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const prompt = `
             You are a professional Venture Capitalist and Startup Evaluator.
@@ -304,15 +397,14 @@ export class IdeaService extends BaseService<any> {
         `;
 
         try {
-            const response = await axios.post(url, {
-                contents: [{ parts: [{ text: prompt }] }],
+            const { text, modelUsed } = await callAiWithFallback({
+                prompt,
+                apiKey,
                 generationConfig: {
                     responseMimeType: "application/json",
                 }
             });
 
-            const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error("No response content from AI API");
 
             const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const analysisData = JSON.parse(cleanJson);
@@ -336,6 +428,48 @@ export class IdeaService extends BaseService<any> {
         } catch (error: any) {
             throw new Error(error.response?.data?.error?.message || error.message || "AI Service failure");
         }
+    }
+
+    async getPublicIdeas(params: { search?: string, category?: string, sort?: string }) {
+        await this.connect();
+        const query: any = { isPublic: true };
+
+        if (params.search) {
+            query.$or = [
+                { title: { $regex: params.search, $options: 'i' } },
+                { tagline: { $regex: params.search, $options: 'i' } }
+            ];
+        }
+
+        if (params.category && params.category !== 'All') {
+            query.targetMarket = { $regex: params.category, $options: 'i' };
+        }
+
+        let sort: any = { publishedAt: -1 };
+        if (params.sort === 'trending') sort = { views: -1 };
+        if (params.sort === 'top-rated') sort = { 'aiAnalysis.score': -1 };
+
+        return this.model.find(query)
+            .select('title tagline targetMarket aiAnalysis.score views publishedAt slug founderId')
+            .populate('founderId', 'name')
+            .sort(sort)
+            .limit(20)
+            .exec();
+    }
+
+    async getPublicIdeaBySlug(slug: string, options: { increment?: boolean } = { increment: true }) {
+        await this.connect();
+        const idea = await this.model.findOne({ slug, isPublic: true })
+            .select('-documents -adminAiAnalysis -adminComment')
+            .populate('founderId', 'name')
+            .exec();
+        
+        if (idea && options.increment) {
+            // Background increment 
+            this.model.findByIdAndUpdate(idea._id, { $inc: { views: 1 } }).exec().catch(console.error);
+        }
+        
+        return idea;
     }
 }
 

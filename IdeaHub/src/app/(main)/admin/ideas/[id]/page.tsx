@@ -15,6 +15,7 @@ import { cn } from '@/utils/cn';
 import { getErrorMessage } from '@/utils/error';
 import Link from 'next/link';
 import { AIAnalysisSection } from '@/components/common/AIAnalysisSection';
+import { ProjectDocuments } from '@/components/common/ProjectDocuments';
 import { useChatNotifications } from '@/hooks/useChatNotifications';
 
 export default function AdminProjectDetailsPage() {
@@ -222,6 +223,13 @@ export default function AdminProjectDetailsPage() {
                             </section>
                         </div>
                     </div>
+
+                    {/* Project Documents Section */}
+                    {idea.documents && idea.documents.length > 0 && (
+                        <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden">
+                            <ProjectDocuments documents={idea.documents} />
+                        </div>
+                    )}
                 </div>
 
                 <aside className="space-y-8 lg:sticky lg:top-8">

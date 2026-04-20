@@ -32,6 +32,7 @@ export const GET = withAuth(async (req, { params, auth }) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .populate('replyTo', 'message senderId senderRole attachment')
         .lean();
 
     const totalMessages = await ChatMessage.countDocuments({ ideaId });

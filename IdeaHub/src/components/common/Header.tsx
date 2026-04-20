@@ -1,7 +1,6 @@
-'use client';
-
 import { Menu, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 
 interface HeaderProps {
@@ -21,6 +20,9 @@ const Header = ({ onMenuClick }: HeaderProps) => {
             </button>
 
             <div className="flex items-center ml-auto gap-4">
+                {/* Notification Bell */}
+                <NotificationDropdown />
+
                 <Link href="/profile" className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center transition-colors">
                         <UserIcon className="w-5 h-5 text-gray-500" />

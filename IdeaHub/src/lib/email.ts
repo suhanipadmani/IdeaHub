@@ -8,9 +8,7 @@ const sendEmail = async (
     }
 ) => {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        if (process.env.NODE_ENV === 'development') {
-            console.log('Mock Email:', { to: options.email, subject: options.subject });
-        }
+        return;
         return;
     }
 
@@ -31,15 +29,8 @@ const sendEmail = async (
 
     try {
         await transporter.sendMail(mailOptions);
-        if (process.env.NODE_ENV === 'development') {
-            console.log('Email sent successfully');
-        }
     } catch (error) {
         console.error('Error sending email:', error);
-        if (process.env.NODE_ENV === 'development') {
-            console.log('--- MOCK EMAIL (FAILED SEND) ---');
-            console.log({ to: options.email, subject: options.subject });
-        }
     }
 };
 

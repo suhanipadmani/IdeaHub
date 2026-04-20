@@ -4,14 +4,14 @@ import { useState, useEffect, ChangeEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ideaService } from '@/services/idea.api';
 import { Loader } from '@/components/ui/Loader';
-import { Eye, Search, Calendar, User, MessageSquare } from 'lucide-react';
+import { Eye, Search, Calendar, User } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import type { IProjectIdea } from '@/types';
 import { useSocket } from '@/context/SocketContext';
-import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { cn } from '@/utils/cn';
+import { useChatNotifications } from '@/hooks/useChatNotifications';
 
 interface ProjectListProps {
     initialStatus?: string;
@@ -136,7 +136,7 @@ const ProjectList = ({ initialStatus = '', showFilters = true, showDateFilter = 
                             />
                         </div>
 
-                        <Button variant="ghost" size="sm" onClick={clearFilters} className="bg-white text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-bold ml-auto md:ml-0">
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="bg-white text-gray-500 dark:bg-gray-800 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-white font-bold ml-auto md:ml-0">
                             Reset
                         </Button>
                     </div>
@@ -160,7 +160,7 @@ const ProjectList = ({ initialStatus = '', showFilters = true, showDateFilter = 
                                 onChange={handleEndDateChange}
                                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm py-1.5 px-3 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-gray-300 transition-all font-medium"
                             />
-                            <Button variant="ghost" size="sm" onClick={clearFilters} className="bg-white text-gray-400 hover:text-indigo-500 font-bold">
+                            <Button variant="ghost" size="sm" onClick={clearFilters} className="bg-white text-gray-400 dark:bg-gray-800 dark:text-indigo-400 dark:hover:text-white hover:text-indigo-500 font-bold">
                                 Clear
                             </Button>
                         </div>
@@ -200,14 +200,14 @@ const ProjectList = ({ initialStatus = '', showFilters = true, showDateFilter = 
                                         <Link href={`/admin/ideas/${idea._id}`} className="group/title">
                                             <div className="flex flex-col">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-gray-900 dark:text-white group-hover/title:text-indigo-600 dark:group-hover/title:text-indigo-400 transition-colors">
+                                                    <span className="font-bold text-gray-900 dark:text-white group-hover/title:text-indigo-600 dark:group-hover/title:text-indigo-400 transition-colors flex items-center gap-2">
                                                         {idea.title}
+                                                        {unreadCounts[idea._id] > 0 ? (
+                                                            <span className="flex items-center justify-center bg-red-600 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full shadow-sm">
+                                                                {unreadCounts[idea._id]}
+                                                            </span>
+                                                        ) : null}
                                                     </span>
-                                                    {unreadCounts[idea._id] > 0 && (
-                                                        <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none flex items-center justify-center min-w-[1.25rem]">
-                                                            {unreadCounts[idea._id]}
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <span className="text-[10px] text-gray-400 uppercase font-bold tracking-tighter truncate max-w-[200px]">{idea.techStack?.join(' • ')}</span>
                                             </div>

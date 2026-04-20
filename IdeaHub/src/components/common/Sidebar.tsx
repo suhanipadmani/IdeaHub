@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronsLeft, Home, Users, PlusCircle, Settings, LogOut, FileText, ChevronDown, ChevronRight, Clock, History } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { cn } from '@/utils/cn';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -14,9 +16,10 @@ interface SidebarProps {
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     const { user, logout } = useAuth();
-    const pathname = usePathname();
+    const pathname = usePathname() || '';
+    const { totalUnread } = useChatNotifications();
     const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-        'reviews': true 
+        'reviews': true
     });
 
     const toggleMenu = (key: string) => {
@@ -67,9 +70,16 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                             isActive ? "text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                         )}
                     >
-                        <div className="flex items-center">
-                            <link.icon className="w-5 h-5 mr-3" />
-                            {link.name}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center">
+                                <link.icon className="w-5 h-5 mr-3" />
+                                {link.name}
+                            </div>
+                            {link.key === 'reviews' && totalUnread > 0 && (
+                                <span className="flex items-center justify-center bg-red-600 text-white text-[10px] font-black h-4 min-w-[16px] px-1 rounded-full shadow-sm">
+                                    {totalUnread}
+                                </span>
+                            )}
                         </div>
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
@@ -89,8 +99,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                                                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                                         )}
                                     >
-                                        <child.icon className="w-4 h-4 mr-3" />
-                                        {child.name}
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center">
+                                                <child.icon className="w-4 h-4 mr-3" />
+                                                {child.name}
+                                            </div>
+                                            {child.name === 'Review History' && totalUnread > 0 && (
+                                                <span className="flex items-center justify-center bg-red-600 text-white text-[10px] font-black h-4 min-w-[16px] px-1 rounded-full shadow-sm">
+                                                    {totalUnread}
+                                                </span>
+                                            )}
+                                        </div>
                                     </Link>
                                 );
                             })}
@@ -115,7 +134,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 )}
             >
                 <link.icon className="w-5 h-5 mr-3" />
-                {link.name}
+                <span className="flex-1">{link.name}</span>
+                {link.name === 'My Ideas' && totalUnread > 0 && (
+                    <span className="flex items-center justify-center bg-red-600 text-white text-[10px] font-black h-5 min-w-[20px] px-1.5 rounded-full shadow-sm">
+                        {totalUnread}
+                    </span>
+                )}
+                {link.name === 'Dashboard'}
             </Link>
         );
     };
@@ -136,7 +161,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex items-center justify-between h-16 px-6 border-b dark:border-gray-800 shrink-0">
-                    <Link href="/" className="text-xl font-bold text-gray-800 dark:text-white">
+                    <Link 
+                        href="/" 
+                        className="text-xl font-bold text-gray-800 dark:text-white"
+                        onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onClose() }}
+                    >
                         IdeaHub
                     </Link>
                     <button 
@@ -147,18 +176,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                     </button>
                 </div>
 
-                <nav className="px-4 py-6 space-y-2 flex-1 overflow-y-auto">
+                <nav className="px-4 py-6 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
                     {links.map((link) => renderLink(link))}
                 </nav>
 
-                <div className="p-4 border-t dark:border-gray-800">
+                <div className="p-4 border-t dark:border-gray-800 flex items-center justify-between gap-2">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400 transition-colors text-left"
+                        className="flex-1 flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400 transition-colors text-left"
                     >
                         <LogOut className="w-5 h-5 mr-3" />
                         Logout
                     </button>
+                    <ThemeToggle />
                 </div>
             </div>
         </>

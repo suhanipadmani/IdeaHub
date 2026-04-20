@@ -45,6 +45,7 @@ export interface IProjectIdea {
         opportunities: string[];
         analyzedAt: string;
     };
+    unreadCount?: number;
     createdAt: string;
     updatedAt: string;
 }

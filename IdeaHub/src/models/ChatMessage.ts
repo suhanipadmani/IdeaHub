@@ -6,7 +6,6 @@ const chatMessageSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: 'ProjectIdea',
             required: true,
-            index: true
         },
         senderId: {
             type: Schema.Types.ObjectId,
@@ -28,6 +27,34 @@ const chatMessageSchema = new Schema(
             name: { type: String, required: false },
             type: { type: String, required: false },
             size: { type: Number, required: false }
+        },
+        attachments: [{
+            url: { type: String, required: true },
+            name: { type: String, required: true },
+            type: { type: String, required: true },
+            size: { type: Number, required: true }
+        }],
+        isEdited: {
+            type: Boolean,
+            default: false
+        },
+        editedAt: {
+            type: Date
+        },
+        replyTo: {
+            type: Schema.Types.ObjectId,
+            ref: 'ChatMessage',
+            required: false
+        },
+        isPinned: {
+            type: Boolean,
+            default: false
+        },
+        status: {
+            type: String,
+            enum: ['sent', 'delivered', 'seen'],
+            default: 'sent',
+            index: true
         }
     },
     { timestamps: true }
