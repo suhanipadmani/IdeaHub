@@ -11,7 +11,7 @@ export class UserService extends BaseService<any> {
 
     async findByEmail(email: string) {
         await this.connect();
-        return this.model.findOne({ email }).exec();
+        return this.model.findOne({ email: email.toLowerCase() }).exec();
     }
 
     async validateCredentials(email: string, password: string) {
@@ -33,7 +33,8 @@ export class UserService extends BaseService<any> {
     }
 
     async register(userData: any) {
-        const existingUser = await this.findByEmail(userData.email);
+        const email = userData.email.toLowerCase();
+        const existingUser = await this.findByEmail(email);
         if (existingUser) {
             throw new Error('User already exists');
         }
@@ -41,6 +42,7 @@ export class UserService extends BaseService<any> {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
         return this.create({
             ...userData,
+            email,
             password: hashedPassword
         });
     }

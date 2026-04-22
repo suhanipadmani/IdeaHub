@@ -24,7 +24,8 @@ const sendEmail = async (
         from: `"${process.env.FROM_NAME || 'Startup Platform'}" <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
         to: options.email,
         subject: options.subject,
-        text: options.message,
+        text: options.message.replace(/<[^>]+>/g, ''), // Fallback text version
+        html: options.message,
     };
 
     try {

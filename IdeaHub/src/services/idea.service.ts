@@ -8,6 +8,8 @@ import path from 'path';
 import mongoose from 'mongoose';
 import { generateSlug } from '@/utils/slug';
 import { callAiWithFallback } from '@/lib/ai-retry';
+import sendEmail from '@/lib/email';
+import { getIdeaStatusEmailTemplate } from '@/utils/emailTemplates';
 
 export class IdeaService extends BaseService<any> {
     constructor() {
@@ -230,7 +232,7 @@ export class IdeaService extends BaseService<any> {
     async reviewIdea(ideaId: string, adminId: string, status: 'approved' | 'rejected', comment: string) {
         await this.connect();
 
-        const idea = await this.model.findById(ideaId);
+        const idea = await this.model.findById(ideaId).populate('founderId', 'name email');
         if (!idea) throw new Error("Idea not found");
         if (idea.status !== "pending") throw new Error("Already reviewed");
 
@@ -263,7 +265,7 @@ export class IdeaService extends BaseService<any> {
 
         // Create Notification for the Founder
         await Notification.create({
-            userId: idea.founderId,
+            userId: idea.founderId._id || idea.founderId,
             title: `Project ${status.charAt(0).toUpperCase() + status.slice(1)}`,
             message: `Your project "${idea.title}" has been ${status} by the administrator.`,
             type: 'review',
@@ -273,6 +275,21 @@ export class IdeaService extends BaseService<any> {
                 status: status
             }
         });
+
+        // Send Email Notification
+        if (idea.founderId && idea.founderId.email) {
+            const htmlMessage = getIdeaStatusEmailTemplate(
+                idea.founderId.name || 'Founder',
+                idea.title,
+                status,
+                comment
+            );
+            await sendEmail({
+                email: idea.founderId.email,
+                subject: `Your startup idea "${idea.title}" has been ${status}`,
+                message: htmlMessage // Assuming our sendEmail function can use this as html, let's verify sendEmail options
+            });
+        }
 
         return idea;
     }
